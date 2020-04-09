@@ -21,6 +21,8 @@ class ServerApp(object):
     def interface_loop(self):
         self.server_thread.start()
         print('Server loop running in thread:', self.server_thread.name)
+        print("Доступные команды:\n\tlist: — показать список подсоединённых клиентов\n\tq: — выключить программу\n"
+              "\tstop: — выключить программу")
         while True:
             input_line = input().split(':')
             cmd = input_line[0]
@@ -32,5 +34,7 @@ class ServerApp(object):
                 except Exception as e:
                     print(e)
                 exit()
+            elif cmd == 'list':
+                print(self.server.session_list)
             else:
                 print('wrong cmd')

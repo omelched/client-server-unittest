@@ -51,7 +51,7 @@ class ServerClassTests(unittest.TestCase):
                                                    server_class.MessageProcessor,
                                                    server_class.ServerExecutor)
 
-        test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('test_cmd', 'test_msg'))
+        test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('ping_pong', 'test_msg'))
         listener_server = TestServer(('localhost', 8081), TestRequestHandler)
         listener_server.server_thread = threading.Thread(target=listener_server.serve_forever)
         listener_server.server_thread.daemon = True
@@ -59,26 +59,29 @@ class ServerClassTests(unittest.TestCase):
         self.test_server_obj.send_message(('localhost', 8081), test_message)
         time.sleep(.001)
         self.assertEqual([i for i in test_message.encode()], listener_server.data)
+        self.test_server_obj.server_close()
         del self.test_server_obj
+        listener_server.server_close()
         del listener_server
+        time.sleep(.001)
 
-    # def test_ServerThreadedTCPRequestHandler_handle(self):
-    #     self.test_server_obj = server_class.Server(('localhost', 8080),
-    #                                                server_class.ServerThreadedTCPRequestHandler,
-    #                                                server_class.MessageProcessor,
-    #                                                server_class.ServerExecutor)
-    #     test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('test_cmd', 'test_msg'))
-    #     listener_server = TestServer(('localhost', 8081), TestRequestHandler)
-    #     listener_server.server_thread = threading.Thread(target=listener_server.serve_forever)
-    #     listener_server.server_thread.daemon = True
-    #     listener_server.server_thread.start()
-    #     for msg in test_message.encode():
-    #         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    #             sock.connect(('localhost', 8080))
-    #             sock.sendall(bytes(msg, 'utf-8'))
-    #             print("sent {}".format(msg))
-    #             sock.close()
-    #     time.sleep(.001)
+    def test_ServerThreadedTCPRequestHandler_handle(self):
+        self.test_server_obj = server_class.Server(('localhost', 8080),
+                                                   server_class.ServerThreadedTCPRequestHandler,
+                                                   server_class.MessageProcessor,
+                                                   server_class.ServerExecutor)
+        test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('s', 'test_msg'))
+        listener_server = TestServer(('localhost', 8081), TestRequestHandler)
+        listener_server.server_thread = threading.Thread(target=listener_server.serve_forever)
+        listener_server.server_thread.daemon = True
+        listener_server.server_thread.start()
+        for msg in test_message.encode():
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.connect(('localhost', 8080))
+                sock.sendall(bytes(msg, 'utf-8'))
+                print("sent {}".format(msg))
+                sock.close()
+        time.sleep(.001)
 # calcTestSuite = unittest.TestSuite()
 # calcTestSuite.addTest(unittest.makeSuite(calc_tests.CalcBasicTests))
 # calcTestSuite.addTest(unittest.makeSuite(calc_tests.CalcExTests))
