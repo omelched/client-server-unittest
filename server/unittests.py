@@ -1,6 +1,9 @@
 import threading
 import unittest
 import socket
+import subprocess
+import sys
+import os
 import time
 import socketserver
 
@@ -26,6 +29,13 @@ class TestRequestHandler(socketserver.BaseRequestHandler):
         self.server.data.append(data)
 
 
+def run_in_subproc(filepath):
+    abs_path = os.path.abspath(filepath)
+    cmd = ['python', abs_path]
+    p = subprocess.check_output(['python', '/Users/user/PycharmProjects/server-app/server/test_ServerExecutor_svr_print.py'])
+    print(p)
+
+
 class UtilsTests(unittest.TestCase):
     def test_ut8len(self):
         self.assertEqual(33, utils.utf8len('this string is XX characters long'))
@@ -38,12 +48,6 @@ class UtilsTests(unittest.TestCase):
 
 
 class ServerClassTests(unittest.TestCase):
-    # def __init__(self):
-    #     super().__init__()
-    #     self.test_server_obj = server_class.Server(('localhost', 8080),
-    #                                                server_class.ServerThreadedTCPRequestHandler,
-    #                                                server_class.MessageProcessor,
-    #                                                server_class.ServerExecutor)
 
     def test_Server_send_message(self):
         self.test_server_obj = server_class.Server(('localhost', 8080),
@@ -65,23 +69,37 @@ class ServerClassTests(unittest.TestCase):
         del listener_server
         time.sleep(.001)
 
-    def test_ServerThreadedTCPRequestHandler_handle(self):
-        self.test_server_obj = server_class.Server(('localhost', 8080),
-                                                   server_class.ServerThreadedTCPRequestHandler,
-                                                   server_class.MessageProcessor,
-                                                   server_class.ServerExecutor)
-        test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('s', 'test_msg'))
-        listener_server = TestServer(('localhost', 8081), TestRequestHandler)
-        listener_server.server_thread = threading.Thread(target=listener_server.serve_forever)
-        listener_server.server_thread.daemon = True
-        listener_server.server_thread.start()
-        for msg in test_message.encode():
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect(('localhost', 8080))
-                sock.sendall(bytes(msg, 'utf-8'))
-                print("sent {}".format(msg))
-                sock.close()
-        time.sleep(.001)
+    # def test_ServerThreadedTCPRequestHandler_handle(self):
+    #     self.test_server_obj = server_class.Server(('localhost', 8080),
+    #                                                server_class.ServerThreadedTCPRequestHandler,
+    #                                                server_class.MessageProcessor,
+    #                                                server_class.ServerExecutor)
+    #
+    #     test_message = message.OutputMessage((_SESSION, _VERSION, _CHUNK_SIZE), body=('test_cmd', 'test_msg'))
+    #     listener_server = TestServer(('localhost', 8081), TestRequestHandler)
+    #     listener_server.server_thread = threading.Thread(target=listener_server.serve_forever)
+    #     listener_server.server_thread.daemon = True
+    #     listener_server.server_thread.start()
+    #     for msg in test_message.encode():
+    #         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    #             sock.connect(('localhost', 8080))
+    #             sock.sendall(bytes(msg, 'utf-8'))
+    #             print("sent {}".format(msg))
+    #             sock.close()
+    #     time.sleep(.001)
+
+    def test_ServerExecutor_svr_print(self):
+        file_path = 'test_ServerExecutor_svr_print.py'
+        script = \
+            """#!/usr/bin/env python
+print(\'test\')
+"""
+        file = open(file_path, 'w+')
+        file.truncate(0)
+        file.write(script)
+        print(run_in_subproc(file_path))
+        file.close()
+        # os.remove(file_path)
 # calcTestSuite = unittest.TestSuite()
 # calcTestSuite.addTest(unittest.makeSuite(calc_tests.CalcBasicTests))
 # calcTestSuite.addTest(unittest.makeSuite(calc_tests.CalcExTests))
