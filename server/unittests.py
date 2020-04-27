@@ -88,17 +88,17 @@ class ServerClassTests(unittest.TestCase):
     #             sock.close()
     #     time.sleep(.001)
 
-    def test_ServerExecutor_svr_print(self):
-        file_path = 'test_ServerExecutor_svr_print.py'
-        script = \
-            """#!/usr/bin/env python
-print(\'test\')
-"""
-        file = open(file_path, 'w+')
-        file.truncate(0)
-        file.write(script)
-        print(run_in_subproc(file_path))
-        file.close()
+#     def test_ServerExecutor_svr_print(self):
+#         file_path = 'test_ServerExecutor_svr_print.py'
+#         script = \
+#             """#!/usr/bin/env python
+# print(\'test\')
+# """
+#         file = open(file_path, 'w+')
+#         file.truncate(0)
+#         file.write(script)
+#         print(run_in_subproc(file_path))
+#         file.close()
         # os.remove(file_path)
 # calcTestSuite = unittest.TestSuite()
 # calcTestSuite.addTest(unittest.makeSuite(calc_tests.CalcBasicTests))

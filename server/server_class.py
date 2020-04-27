@@ -1,3 +1,14 @@
+"""
+Подсистема server_class - подсистема серверного взаимодейтсвия
+Подразделяется на 5 классов:
+
+Server - класс серверов
+ConfigClass - класс настроек сервера
+ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов
+MessageProcessor — класс Процессоров полученных сообщений
+ServerExecutor - класс Исполнителей полученных комманд
+"""
+
 import socket
 import socketserver
 
@@ -5,15 +16,90 @@ from server.message import InputMessage, OutputMessage
 from server.utils import get_hash, parse_string
 
 
-class MessageProcessor(object):
+class ConfigClass(object):
+    """
+    ConfigClass - класс настроек сервера.
+    Содержит константы и/или настройки для работы сервера.
+    Не инстанциируется непосредственно - лишь является одним из родителей класса Server.
+    """
+    def __init__(self):
+        """
+        Метод инициализации.
+        Устанавливаются некоторые предопределенные значения.
+        """
+        self.version = '0.1'
+        self.session_list = {}
+        self.small_cache_size = 10
+        self.chunk_size = 1024
 
-    def __init__(self, server_instance):
+
+class Server(socketserver.ThreadingTCPServer, ConfigClass):
+    """
+    Server - класс серверов.
+    """
+    def __init__(self, server_address: tuple, RequestHandlerClass, MessageProcessorClass, ServerExecutorClass):
+        """
+        Метод инициализации.
+        Отрабатывают функции инициализации родителей,
+        создаёт пустой список для открытых соединений,
+        инстанциируются Процессор сообщений и Исполнитель сообщений.
+
+        :param server_address: кортеж (IP: string, PORT: int)
+        :param RequestHandlerClass: Класс Обработчика входящих запросов (для последующей инстанциации)
+        :param MessageProcessorClass: Класс Процессора полученных сообщений (для последующей инстанциации)
+        :param ServerExecutorClass: Класс Исполнителя полученных комманд (для последующей инстанциации)
+        """
+        super().__init__(server_address, RequestHandlerClass)
+        ConfigClass.__init__(self)
+        self.open_conn = []
+        self.msg_proc = MessageProcessorClass(self)
+        self.executor = ServerExecutorClass(self)
+
+    @staticmethod
+    def send_message(settings: tuple, message: OutputMessage):
+        """
+        Метод отправки сообщения другому приложению.
+
+        :param settings: кортеж (IP: string, PORT: int)
+        :param message: сообщение - объект класса OutputMessage
+        """
+        for msg in message.encode():
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.connect((settings[0], settings[1]))
+                sock.sendall(bytes(msg, 'utf-8'))
+                print("sent {}".format(msg))
+                sock.close()
+
+
+class MessageProcessor(object):
+    """
+    MessageProcessor - класс процессоров полученных сообщений.
+    Инстанцируется при запуске сервера.
+    Восстанавливает сообщения из данных, полученных в результате обработки серии входящих запросов.
+    """
+
+    def __init__(self, server_instance: Server):
+        """
+        Метод инициализации объекта
+        :param server_instance: объект класса Server для работы которого инстанциируется Процессор полученных сообщений
+        """
         self.server = server_instance
 
     def get_hashed_sessions(self):
+        """
+        Метод получения 10 первых символов хэшей активных сеансов.
+
+        :return: словарь формата {хэшсумма сеанса 1: сеанс 1, хэшсумма сеанса 2: сеанс 2, ...}
+        """
         return {get_hash(session, self.server.version)[:10]: session for session in self.server.session_list}
 
     def _preprocess(self, connection, new=False):
+        """
+        Частный метод,
+        :param connection:
+        :param new:
+        :return:
+        """
         input_params = []
         for key_value in connection[1]:
             input_params.append(parse_string(key_value))
@@ -73,15 +159,6 @@ class MessageProcessor(object):
             print('Server command {} not available'.format(cmd))
 
 
-class ConfigClass(object):
-    def __init__(self):
-        self.version = '0.1'
-        self.session_list = {}
-        self.small_cache_size = 10
-        self.chunk_size = 1024
-        self.command_list = ['svr_print', 'svr_greeting']
-
-
 class ServerExecutor(object):
     def __init__(self, server_instance):
         self.server = server_instance
@@ -107,24 +184,6 @@ class ServerExecutor(object):
         return message.msg
 
 
-class Server(socketserver.ThreadingTCPServer, ConfigClass):
-    def __init__(self, server_address, RequestHandlerClass, MessageProcessorClass, ServerExecutorClass):
-        super().__init__(server_address, RequestHandlerClass)
-        ConfigClass.__init__(self)
-        self.open_conn = []
-        self.msg_proc = MessageProcessorClass(self)
-        self.executor = ServerExecutorClass(self)
-
-    @staticmethod
-    def send_message(settings, message):
-        for msg in message.encode():
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect((settings[0], settings[1]))
-                sock.sendall(bytes(msg, 'utf-8'))
-                print("sent {}".format(msg))
-                sock.close()
-
-
 class ServerThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
@@ -136,26 +195,36 @@ class ServerThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             size_list = [True if int(i) > self.server.chunk_size else False for i in
                          data.split(':')[1][:-1].split('|')[:-1]]
             size_list.insert(0, False)
-            self.server.open_conn.append([[session_hash[:10], size_list], []])
-
-        elif len(session_hash) == 20:
-            for _conn in self.server.open_conn:
-                if session_hash[:10] == _conn[0][0]:
-                    self.server.open_conn.remove(_conn)
-                else:
-                    print('InvalidConnection! Failed to remove {}'.format(session_hash))
-                response = self.server.msg_proc.process_message(_conn)
-                self.request.sendall(b'response')
-                print(self.client_address)
-                self.server.send_message(('localhost', 15152), response)
+            connection = ConnectionClass(session_hash, size_list)
+            self.server.open_conn.append(connection)
 
         elif len(session_hash) == 10:
-            for _conn in self.server.open_conn:
-                if session_hash == _conn[0][0]:
-                    if not _conn[0][1][len(_conn[1])]:
-                        _conn[1].append(data.split(':', 1)[1])
+            for connection in self.server.open_conn:
+                if session_hash == connection.hash_trace:
+                    if not connection.size_list[len(connection.data)]:
+                        connection.data.append(data.split(':', 1)[1])
                     else:
-                        _conn[1][-1] += data.split(':', 1)[1]
+                        connection.data[-1] += data.split(':', 1)[1]
 
                 else:
                     print('InvalidConnection! Failed to update {}'.format(session_hash))
+
+        elif len(session_hash) == 20:
+            for connection in self.server.open_conn:
+                if session_hash[:10] == connection.hash_trace:
+                    self.server.open_conn.remove(connection)
+                else:
+                    print('InvalidConnection! Failed to remove {}'.format(session_hash))
+                response = self.server.msg_proc.process_message(connection)
+                # self.request.sendall(b'response')
+                print(self.client_address)
+                self.server.send_message(('localhost', 15152), response)
+
+
+
+
+class ConnectionClass(object):
+    def __init__(self, session_hash: str, size_list: list):
+        self.hash_trace = session_hash[:10]
+        self.size_list = size_list
+        self.data = []
