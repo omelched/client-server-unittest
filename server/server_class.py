@@ -7,6 +7,7 @@ ConfigClass - класс настроек сервера
 ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов
 MessageProcessor — класс Процессоров полученных сообщений
 ServerExecutor - класс Исполнителей полученных комманд
+ConnectionClass - класс установленных соединений
 """
 
 import socket
@@ -22,6 +23,7 @@ class ConfigClass(object):
     Содержит константы и/или настройки для работы сервера.
     Не инстанциируется непосредственно - лишь является одним из родителей класса Server.
     """
+
     def __init__(self):
         """
         Метод инициализации.
@@ -37,6 +39,7 @@ class Server(socketserver.ThreadingTCPServer, ConfigClass):
     """
     Server - класс серверов.
     """
+
     def __init__(self, server_address: tuple, RequestHandlerClass, MessageProcessorClass, ServerExecutorClass):
         """
         Метод инициализации.
@@ -71,6 +74,27 @@ class Server(socketserver.ThreadingTCPServer, ConfigClass):
                 sock.close()
 
 
+class ConnectionClass(object):
+    """
+    ConnectionClass — класс установленных соединений между приложениями.
+    """
+
+    def __init__(self, session_hash: str, size_list: list):
+        """
+        Инстанциируется при приеме первого запроса от другого приложения,
+        в процессе получения остаточных запросов -  наполняется информацией,
+        уничтожается после получения полного сообщения.
+
+        :param session_hash: входящий хэш сеанса (для проверки актуальности версий и поиска уже открытых сеансов)
+        :param size_list: массив из boolean, определяющий превышает ли закодированная информация в сообщении буфер
+        TCP-соединения. Если превышает (True) - то информация будет выслана несколькими запросами, следовательно
+        нужно грамотно декодировать во время Обработки.
+        """
+        self.hash_trace = session_hash[:10]
+        self.size_list = size_list
+        self.data = []
+
+
 class MessageProcessor(object):
     """
     MessageProcessor - класс процессоров полученных сообщений.
@@ -93,21 +117,28 @@ class MessageProcessor(object):
         """
         return {get_hash(session, self.server.version)[:10]: session for session in self.server.session_list}
 
-    def _preprocess(self, connection, new=False):
+    def _preprocess(self, connection: ConnectionClass, new: bool = False):
         """
-        Частный метод,
-        :param connection:
-        :param new:
+        Частный метод.
+        Берет соединение, которое необходимо от-Процессовать и подготавливает его:
+        - создаёт объект класса InputMessage основанный на соединении
+        - создаёт объект класса OutputMessage если на данное соединение необходимо заранее подготовить ответ
+
+        :param connection: объект класса ConnectionClass - соединение на основании которого будет создано сообщение
+        :param new: boolean — True если это новое соединение в текущем сеансе работы сервера и для него будет отдельно
+        создано ответное сообщение
         :return:
+        message - подготовленный экземпляр класса InputMessage для дальшейшего Процессинга (сообщение),
+        callback (опционально) - подготовленный экземпляр класса OutputMessage (ответное сообщение)
         """
         input_params = []
-        for key_value in connection[1]:
+        for key_value in connection.data:
             input_params.append(parse_string(key_value))
         message = InputMessage(self.server.chunk_size, input_params)
         if new:
             return message
         else:
-            callback = OutputMessage((self.get_hashed_sessions()[connection[0][0]],
+            callback = OutputMessage((self.get_hashed_sessions()[connection.hash_trace],
                                       self.server.version,
                                       self.server.chunk_size))
         return message, callback
@@ -117,8 +148,9 @@ class MessageProcessor(object):
         setattr(callback, 'cmd', cmd_value)
         setattr(callback, 'msg', msg_value)
 
-    def process_message(self, connection):
-        if connection[0][0] in self.get_hashed_sessions().keys():
+    def process_message(self, connection: ConnectionClass):
+
+        if connection.hash_trace in self.get_hashed_sessions().keys():
             message, callback = self._preprocess(connection)
             try:
                 self.execute_message(message)
@@ -216,15 +248,5 @@ class ServerThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 else:
                     print('InvalidConnection! Failed to remove {}'.format(session_hash))
                 response = self.server.msg_proc.process_message(connection)
-                # self.request.sendall(b'response')
                 print(self.client_address)
                 self.server.send_message(('localhost', 15152), response)
-
-
-
-
-class ConnectionClass(object):
-    def __init__(self, session_hash: str, size_list: list):
-        self.hash_trace = session_hash[:10]
-        self.size_list = size_list
-        self.data = []
