@@ -5,8 +5,8 @@
 Server - класс серверов
 ConfigClass - класс настроек сервера
 ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов
-MessageProcessor — класс Процессоров полученных сообщений
-ServerExecutor - класс Исполнителей полученных комманд
+MessageProcessor — класс Процессоров полученных соединений
+ServerExecutor - класс Исполнителей полученных команд
 ConnectionClass - класс установленных соединений
 """
 
@@ -49,8 +49,8 @@ class Server(socketserver.ThreadingTCPServer, ConfigClass):
 
         :param server_address: кортеж (IP: string, PORT: int)
         :param RequestHandlerClass: Класс Обработчика входящих запросов (для последующей инстанциации)
-        :param MessageProcessorClass: Класс Процессора полученных сообщений (для последующей инстанциации)
-        :param ServerExecutorClass: Класс Исполнителя полученных комманд (для последующей инстанциации)
+        :param MessageProcessorClass: Класс Процессора полученных соединений (для последующей инстанциации)
+        :param ServerExecutorClass: Класс Исполнителя полученных команд (для последующей инстанциации)
         """
         super().__init__(server_address, RequestHandlerClass)
         ConfigClass.__init__(self)
@@ -61,6 +61,7 @@ class Server(socketserver.ThreadingTCPServer, ConfigClass):
     @staticmethod
     def send_message(settings: tuple, message: OutputMessage):
         """
+        Статический метод.
         Метод отправки сообщения другому приложению.
 
         :param settings: кортеж (IP: string, PORT: int)
@@ -83,7 +84,7 @@ class ConnectionClass(object):
         """
         Инстанциируется при приеме первого запроса от другого приложения,
         в процессе получения остаточных запросов -  наполняется информацией,
-        уничтожается после получения полного сообщения.
+        уничтожается в результате Процессинга.
 
         :param session_hash: входящий хэш сеанса (для проверки актуальности версий и поиска уже открытых сеансов)
         :param size_list: массив из boolean, определяющий превышает ли закодированная информация в сообщении буфер
@@ -97,15 +98,15 @@ class ConnectionClass(object):
 
 class MessageProcessor(object):
     """
-    MessageProcessor - класс процессоров полученных сообщений.
+    MessageProcessor - класс процессоров полученных соединений.
     Инстанцируется при запуске сервера.
-    Восстанавливает сообщения из данных, полученных в результате обработки серии входящих запросов.
+    Восстанавливает сообщения из соединений, полученных при обработке входящих запросов.
     """
 
     def __init__(self, server_instance: Server):
         """
-        Метод инициализации объекта
-        :param server_instance: объект класса Server для работы которого инстанциируется Процессор полученных сообщений
+        Метод инициализации объекта.
+        :param server_instance: объект класса Server для работы которого инстанциируется Процессор полученных соединений
         """
         self.server = server_instance
 
@@ -120,7 +121,7 @@ class MessageProcessor(object):
     def _preprocess(self, connection: ConnectionClass, new: bool = False):
         """
         Частный метод.
-        Берет соединение, которое необходимо от-Процессовать и подготавливает его:
+        Берет соединение, которое необходимо от-Процессить и подготавливает его:
         - создаёт объект класса InputMessage основанный на соединении
         - создаёт объект класса OutputMessage если на данное соединение необходимо заранее подготовить ответ
 
@@ -144,11 +145,30 @@ class MessageProcessor(object):
         return message, callback
 
     @staticmethod
-    def _set_callback_attr(callback, cmd_value, msg_value):
+    def _set_callback_attr(callback: OutputMessage, cmd_value: str, msg_value: str):
+        """
+        Статический частный метод.
+        Присваивает некоторым аттрибутам экземпляра callback переданные в метод значения.
+
+        :param callback: экземпляр класса OutputMessage, аттрибуты которого необходимо обновить
+        :param cmd_value: строка - значение для аттрибута cmd
+        :param msg_value: строка - значение для аттрибута msg
+        """
         setattr(callback, 'cmd', cmd_value)
         setattr(callback, 'msg', msg_value)
 
     def process_message(self, connection: ConnectionClass):
+        """
+        Метод Процессинга соединений.
+        Проверяет хэш сеанса соединения на присутствие в списке активных сеансов.
+        Если присутствует - тогда запускает передает сообщение Исполнителю и возвращает ответное сообщение
+        Если хэш сеанса соединения отсутствует в списке активных сеансов - тогда исполняет сообщение
+        (ожидается что в сообщении будет команда initialize_session - а значит сеанс будет инициализирован на сервере),
+        далее возвращает ответное сообщение.
+
+        :param connection: экземпляр класса connection — установленное соединение, которое необходимо от-Процессить.
+        :return: экземпляр класса OutputMessage — сообщение-ответ на входящее сообщение.
+        """
 
         if connection.hash_trace in self.get_hashed_sessions().keys():
             message, callback = self._preprocess(connection)
@@ -161,8 +181,9 @@ class MessageProcessor(object):
                 setattr(callback, 'msg', e)
                 setattr(callback, 'id', getattr(message, 'id'))
             finally:
+                del connection
                 return callback
-        elif connection[0][0] == get_hash(0, self.server.version)[:10]:
+        elif connection.hash_trace == get_hash(0, self.server.version)[:10]:
             message = self._preprocess(connection, True)
             try:
                 identifier = self.execute_message(message)
@@ -174,12 +195,21 @@ class MessageProcessor(object):
             except Exception as e:
                 print(e)
                 callback = None
+            del connection
             return callback
         else:
             print('Not Existing session')
+            del connection
             return 0
 
     def execute_message(self, message):
+        """
+        Метод проверки и исполнения команды из входящего сообщения.
+        Устанавливает соответствие между командой входящего сообщения
+        и методом экземпляра Исполнителя полученных команд.
+
+        :param message: экземпляр класса InputMessage — сообщение, которое содержит исполняемую команду
+        """
         cmd = getattr(message, 'cmd')
         if cmd in getattr(self.server.executor, '_get_available_commands')():
             try:
@@ -192,33 +222,89 @@ class MessageProcessor(object):
 
 
 class ServerExecutor(object):
+    """
+    ServerExecutor - класс Исполнителей полученных команд.
+    Исполняет команды, полученные от других приложений.
+    Доступные команды представляют собой публичные методы этого класса.
+
+    Новая команда должна добавляться объявлением соответствующего метода, для которого единственным аргументом будет
+    экземпляр класса InputMessage!
+    """
     def __init__(self, server_instance):
+        """
+        Метод инициализации объекта.
+
+        :param server_instance: объект класса Server для работы которого инстанциируется Исполнитель полученных команд.
+        """
         self.server = server_instance
 
     @staticmethod
     def svr_print(message):
+        """
+        Статический метод.
+        Выводит текст msg из экземпляра класса InputMessage в стандартный поток ввода-вывода.
+
+        :param message: экземпляр класса InputMessage
+        :return:
+        """
         print(message.msg)
 
-    def initialize_session(self, message):
+    def initialize_session(self, message) -> int:
+        """
+        Метод инициализации сеанса на сервере.
+        Добавляет сеанс в список активных сеансов сервера.
+
+        :param message: экземпляр класса InputMessage
+        :return: intвозвращает идентификатор, присвоенный данному сеансу - чтобы клиент смог себе его присвоить.
+        """
         identifier = len(self.server.session_list) + 1
         self.server.session_list.update({identifier: [message.msg.split(':')[0],
                                                       message.msg.split(':')[1]]})
         return identifier
 
     def svr_greeting(self, message):
+        """
+        Метод приветствия.
+
+        :param message: экземпляр класса InputMessage
+        """
         print('Hello from {}:{}!'.format(self.server.server_address[0], self.server.server_address[1]))
 
-    def _get_available_commands(self):
+    def _get_available_commands(self) -> list:
+        """
+        Частный метод.
+        Метод получения доступных публичных методов из собственного класса.
+
+        :return: list из существубличных методов
+        """
         return [key for key in [s for s in dir(self) if s[:1] != '_' and callable((getattr(self, s)))]]
 
     @staticmethod
-    def ping_pong(message):
+    def ping_pong(message) -> str:
+        """
+        Статический метод.
+        Пинг понг — возвращает клиенту msg из сообщения, полученного с клиента.
+        :param message: экземпляр класса InputMessage
+        :return: str — текст аттрибута msg объекта message
+        """
         return message.msg
 
 
 class ServerThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    """
+    ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов.
+    При получении TCP запроса - обрабатывает, создаёт соединение (экземпляр класса ConnectionClass) и обновляет его
+    пока не получит все части сообщения от клиента.
+
+    data — информация получаемая от клиента (последовательность байт).
+    Для понимания почему происходит такая на первый взгляд странная декодировка,
+    лучше обратиться в справку класса OutputMessage.
+    """
 
     def handle(self):
+        """
+        Метод handle вызывается как только сервер получает запрос от клиента.
+        """
         data = str(self.request.recv(self.server.chunk_size), 'utf-8')
         print("got {}".format(data))
         session_hash = data.split(':')[0]
