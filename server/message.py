@@ -1,8 +1,31 @@
+"""
+Подсистема message - описывает возможные классы для сообщений, а так же их поведениие.
+
+MessageUnit - родительский класс сообщений
+OutputMessage - класс исходящих сообщений
+InputMessage - класс входящих сообщений
+"""
 from server.utils import utf8len, get_hash
 
 
 class MessageUnit(object):
+    """
+    MessageUnit - родительский класс сообщений.
+    Описывает структуру аттрибутов и методов, общую для всех сообщений.
+    """
+
     def __init__(self, chunk_size, **kwargs):
+        """
+        Метод инициализации.
+
+        Присваивает заведомо нулевые значения используемым аттрибутам (инициализирует их).
+        Сохраняет значение chunk_size для того, последующей кодировки.
+        Присваивает инициализируемому экземпляру любые переданные в kwargs параметры.
+
+        :param chunk_size: максимальный размер окна в TCP-соединении
+        :param kwargs: дополнительные параметры и их значения, которые необходимо присвоить экзепляру для дальнейшей
+        кодировки и передачи
+        """
         self._hash = 0
         self._session = None
         self._version = None
@@ -11,7 +34,20 @@ class MessageUnit(object):
             exec('self.{} = None'.format(key))
             setattr(self, key, value)
 
-    def encode(self):
+    def encode(self) -> list:
+        """
+        Проходимся по каждому публичному аттрибуту и кодируем экземпляр MessageUnit в list по следующему правилу:
+        Первый элемент списка:  "{40 символов _hash}:{длина элемента 2 в байтах}|...|{длина элемента n-1 в байтах}|"
+        Второй элемент списка:  "{10 символов _hash}:{наименование аттрибута 1}={значение аттрибута 1}"
+        ...
+        n-1 элемент списка:     "{10 символов _hash}:{наименование аттрибута k}={значение аттрибута k}"
+        n элемент списка:       "{20 символов _hash}:EOF"
+
+        Если длина какого-то элемента получилась больше чем chunk_size то он делится на несколько элементов
+        длина которых не превышает chunk_size.
+
+        :return: list - закодированное сообщение, готовое к TCP-передаче
+        """
         messages = []
         intro = '{}:'.format(self._hash)
         outro = '{}:EOF'.format(self._hash[:20])
@@ -29,8 +65,20 @@ class MessageUnit(object):
 
 
 class OutputMessage(MessageUnit):
-    def __init__(self, settings, body=(None, None), **kwargs):  # settings = (session, version, chunk_size); body = (
-        # cmd, msg)
+    """
+    OutputMessage - класс исходящих сообщений. Дочерний класс для MessageUnit.
+    Отличается наличием предопределённых аттрибутов, которые должны быть у исходящего сообщения.
+    """
+
+    def __init__(self, settings: tuple, body: tuple = (None, None),
+                 **kwargs):
+        """
+        Метод инициализации.
+
+        :param settings: кортеж из значений (номер сеанса, номер версии, размер окна TCP)
+        :param body: кортеж из значений (значение для аттрибута cmd, значение для аттрибута msg)
+        :param kwargs: дополнительные аттрибуты и их значения
+        """
         super().__init__(settings[2], **kwargs)
         self.cmd = body[0]
         self.msg = body[1]
@@ -38,7 +86,18 @@ class OutputMessage(MessageUnit):
 
 
 class InputMessage(MessageUnit):
-    def __init__(self, chunk_size, input_params, **kwargs):
+    """
+    InputMessage - класс входящих сообщений. Дочерний класс для MessageUnit.
+    Отличается отсутствием предопределённых аттрибутов, и динамическим формированием принятых аттрибутов.
+    """
+    def __init__(self, chunk_size: int, input_params: list, **kwargs):
+        """
+        Метод инициализации.
+
+        :param chunk_size: размер окна TCP
+        :param input_params: list из параметров в формате [[параметр 1, значение 1],...,[параметр n, значение n]]
+        :param kwargs: дополнительные аттрибуты и их значения
+        """
         super().__init__(chunk_size, **kwargs)
         for key, value in input_params:
             exec('self.{} = None'.format(key))

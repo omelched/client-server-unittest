@@ -1,6 +1,10 @@
-import threading
+"""
+Подстема app - подсистема работы приложения
 
-from server.message import OutputMessage
+ServerApp - класс приложениия.
+
+"""
+import threading
 from server.server_class import ServerThreadedTCPRequestHandler, MessageProcessor, ServerExecutor, Server
 
 HOST, PORT = 'localhost', 15151
@@ -16,7 +20,6 @@ class ServerApp(object):
                              ServerExecutor)
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
-        # self.interface_loop()
 
     def interface_loop(self):
         self.server_thread.start()
