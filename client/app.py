@@ -1,7 +1,7 @@
 import threading
 
 from client.message import OutputMessage
-from client.client import Client, ClientThreadedTCPRequestHandler, MessageProcessor, ClientExecutor
+from client.network import Client, ClientThreadedTCPRequestHandler, MessageProcessor, ClientExecutor
 
 
 class ClientApp(object):

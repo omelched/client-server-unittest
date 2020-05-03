@@ -5,7 +5,7 @@ ServerApp - класс приложениия.
 
 """
 import threading
-from server.server_class import ServerThreadedTCPRequestHandler, MessageProcessor, ServerExecutor, Server
+from server.network import ThreadedTCPRequestHandler, MessageProcessor, ServerExecutor, Server
 
 HOST, PORT = 'localhost', 15151
 
@@ -27,7 +27,7 @@ class ServerApp(object):
         self.HOST, self.PORT = settings[0], settings[1]
 
         self.server = Server((HOST, PORT),
-                             ServerThreadedTCPRequestHandler,
+                             ThreadedTCPRequestHandler,
                              MessageProcessor,
                              ServerExecutor)
         self.server_thread = threading.Thread(target=self.server.serve_forever)

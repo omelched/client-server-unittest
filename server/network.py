@@ -1,10 +1,10 @@
 """
-Подсистема server_class - подсистема серверного взаимодейтсвия
+Подсистема server - подсистема серверного взаимодейтсвия
 Подразделяется на 5 классов:
 
-Server - класс серверов
+Server - класс серверного взаимодействия
 ConfigClass - класс настроек сервера
-ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов
+ThreadedTCPRequestHandler - класс Обработчиков входящих запросов
 MessageProcessor — класс Процессоров полученных соединений
 ServerExecutor - класс Исполнителей полученных команд
 ConnectionClass - класс установленных соединений
@@ -37,7 +37,7 @@ class ConfigClass(object):
 
 class Server(socketserver.ThreadingTCPServer, ConfigClass):
     """
-    Server - класс серверов.
+    Server - класс серверного взаимодействия.
     """
 
     def __init__(self, server_address: tuple, RequestHandlerClass, MessageProcessorClass, ServerExecutorClass):
@@ -290,9 +290,9 @@ class ServerExecutor(object):
         return message.msg
 
 
-class ServerThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     """
-    ServerThreadedTCPRequestHandler - класс Обработчиков входящих запросов.
+    ThreadedTCPRequestHandler - класс Обработчиков входящих запросов.
     При получении TCP запроса - обрабатывает, создаёт соединение (экземпляр класса ConnectionClass) и обновляет его
     пока не получит все части сообщения от клиента.
 
