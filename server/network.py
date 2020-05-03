@@ -240,7 +240,7 @@ class ServerExecutor(object):
         self.server = server_instance
 
     @staticmethod
-    def svr_print(message):
+    def svr_print(message: InputMessage):
         """
         Статический метод.
         Выводит текст msg из экземпляра класса InputMessage в стандартный поток ввода-вывода.
@@ -250,20 +250,29 @@ class ServerExecutor(object):
         """
         print(message.msg)
 
-    def initialize_session(self, message) -> int:
+    def initialize_session(self, message: InputMessage) -> int:
         """
         Метод инициализации сеанса на сервере.
         Добавляет сеанс в список активных сеансов сервера.
 
         :param message: экземпляр класса InputMessage
-        :return: intвозвращает идентификатор, присвоенный данному сеансу - чтобы клиент смог себе его присвоить.
+        :return: int возвращает идентификатор, присвоенный данному сеансу - чтобы клиент смог себе его присвоить.
         """
         identifier = len(self.server.session_list) + 1
         self.server.session_list.update({identifier: [message.msg.split(':')[0],
                                                       message.msg.split(':')[1]]})
         return identifier
 
-    def svr_greeting(self, message):
+    def delete_session(self, message: InputMessage):
+        """
+        Метод завершения сеанса клиента на сервере.
+        Удаляет сеанс из списка активных сеансов сервера.
+
+        :param message: экземпляр класса InputMessage
+        """
+        # del self.server.session_list[]
+
+    def svr_greeting(self, message: InputMessage):
         """
         Метод приветствия.
 
@@ -280,8 +289,11 @@ class ServerExecutor(object):
         """
         return [key for key in [s for s in dir(self) if s[:1] != '_' and callable((getattr(self, s)))]]
 
+
+
+
     @staticmethod
-    def ping_pong(message) -> str:
+    def ping_pong(message: InputMessage) -> str:
         """
         Статический метод.
         Пинг понг — возвращает клиенту msg из сообщения, полученного с клиента.

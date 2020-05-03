@@ -68,6 +68,7 @@ class Client(socketserver.ThreadingTCPServer, ConfigClass):
         self.executor = ClientExecutorClass(self)
         self.open_conn = []
         self.pending_messages = []
+        self.killed_on_server = False
 
     def send_message(self, message: OutputMessage):
         """
@@ -186,15 +187,16 @@ class ClientExecutor(object):
     def approve_init(self, message: InputMessage):
         self.client.app.session = int(message.msg)
 
-    @staticmethod
-    def svr_approve(message: InputMessage):
+    def svr_approve(self, message: InputMessage):
+        if message.msg == 'delete_session':
+            self.client.killed_on_server = True
         print('Server successfully executed command {}!'.format(message.msg))
 
     def _get_available_commands(self):
         return [key for key in [s for s in dir(self) if s[:1] != '_' and callable((getattr(self, s)))]]
 
 
-class ClientThreadedTCPRequestHandler(socketserver.BaseRequestHandler):  # заточить на работу с одним сервером
+class ClientThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         """
@@ -202,9 +204,6 @@ class ClientThreadedTCPRequestHandler(socketserver.BaseRequestHandler):  # за�
         """
 
         data = str(self.request.recv(self.server.chunk_size), 'utf-8')
-        if not self.client_address == self.server.server_adr:
-            print('got {} from not our server {}'.format(data, self.client_address))
-            return
         print("got {} from {}".format(data, self.client_address))
         session_hash = data.split(':')[0]
 
