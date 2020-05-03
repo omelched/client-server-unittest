@@ -1,5 +1,5 @@
 """
-Подсистема server - подсистема серверного взаимодейтсвия
+Подсистема network - подсистема сетевого взаимодейтсвия
 Подразделяется на 5 классов:
 
 Server - класс серверного взаимодействия
@@ -62,7 +62,8 @@ class Server(socketserver.ThreadingTCPServer, ConfigClass):
     def send_message(settings: tuple, message: OutputMessage):
         """
         Статический метод.
-        Метод отправки сообщения другому приложению.
+        Метод отправки сообщения клиенту.
+        Напрямую не использовать! Использовать только для ответа на входящее сообщение.
 
         :param settings: кортеж (IP: string, PORT: int)
         :param message: сообщение - объект класса OutputMessage
@@ -202,7 +203,7 @@ class MessageProcessor(object):
             del connection
             return 0
 
-    def execute_message(self, message):
+    def execute_message(self, message: InputMessage):
         """
         Метод проверки и исполнения команды из входящего сообщения.
         Устанавливает соответствие между командой входящего сообщения
@@ -230,7 +231,7 @@ class ServerExecutor(object):
     Новая команда должна добавляться объявлением соответствующего метода, для которого единственным аргументом будет
     экземпляр класса InputMessage!
     """
-    def __init__(self, server_instance):
+    def __init__(self, server_instance: Server):
         """
         Метод инициализации объекта.
 
@@ -306,7 +307,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         Метод handle вызывается как только сервер получает запрос от клиента.
         """
         data = str(self.request.recv(self.server.chunk_size), 'utf-8')
-        print("got {}".format(data))
+        print("got {} from {}".format(data, self.client_address))
         session_hash = data.split(':')[0]
 
         if len(session_hash) == 40:
@@ -331,8 +332,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             for connection in self.server.open_conn:
                 if session_hash[:10] == connection.hash_trace:
                     self.server.open_conn.remove(connection)
+                    response = self.server.msg_proc.process_message(connection)
+                    self.server.send_message(('localhost', 15152), response)
                 else:
                     print('InvalidConnection! Failed to remove {}'.format(session_hash))
-                response = self.server.msg_proc.process_message(connection)
-                print(self.client_address)
-                self.server.send_message(('localhost', 15152), response)
+
