@@ -5,7 +5,6 @@ from client.message import OutputMessage
 from client.network import Client, ClientThreadedTCPRequestHandler, MessageProcessor, ClientExecutor
 
 
-
 class ClientApp(object):
     def __init__(self, settings):
         self.HOST, self.PORT = settings[0], settings[1]
