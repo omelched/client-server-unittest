@@ -70,10 +70,11 @@ class Client(socketserver.ThreadingTCPServer, ConfigClass):
         self.pending_messages = []
         self.killed_on_server = False
 
-    def send_message(self, message: OutputMessage):
+    def send_message(self, message: OutputMessage, DEBUG: bool = False):
         """
         Метод отправки сообщения серверу.
 
+        :param DEBUG:
         :param message: сообщение - объект класса OutputMessage
         """
 
@@ -83,6 +84,8 @@ class Client(socketserver.ThreadingTCPServer, ConfigClass):
                 sock.sendall(bytes(msg, 'utf-8'))
                 print("sent {}".format(msg))
                 sock.close()
+                if DEBUG:
+                    _ = input()
         self.pending_messages.append(message.id)
 
 

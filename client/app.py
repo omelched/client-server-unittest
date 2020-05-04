@@ -5,6 +5,7 @@ from client.message import OutputMessage
 from client.network import Client, ClientThreadedTCPRequestHandler, MessageProcessor, ClientExecutor
 
 
+
 class ClientApp(object):
     def __init__(self, settings):
         self.HOST, self.PORT = settings[0], settings[1]
@@ -35,12 +36,14 @@ class ClientApp(object):
 
     def _close_app(self):
         timeout = 10
-
-        self._delete_on_server()
-        timeout_start = time.time()
-        while time.time() < timeout_start + timeout and not self.client.killed_on_server:
-            print('we are waiting')
-            time.sleep(1)
+        try:
+            self._delete_on_server()
+            timeout_start = time.time()
+            while time.time() < timeout_start + timeout and not self.client.killed_on_server:
+                print('we are waiting')
+                time.sleep(1)
+        except ConnectionRefusedError:
+            pass
         self.client.server_close()
         exit()
 
@@ -60,6 +63,9 @@ class ClientApp(object):
             if cmd == 's':
                 test = OutputMessage((self.session, '0.1', 1024), ('svr_print', input_line[1]))
                 self.client.send_message(test)
+            elif cmd == 'sd':
+                test = OutputMessage((self.session, '0.1', 1024), ('svr_print', input_line[1]))
+                self.client.send_message(test, DEBUG=True)
             elif cmd == 'q':
                 self._close_app()
             else:

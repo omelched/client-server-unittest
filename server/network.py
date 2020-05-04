@@ -79,6 +79,9 @@ class SessionClass(object):
         self.current_connection = current_connection
         self.hash_trace = hash_trace
 
+    def regenerate_hash_trace(self, server_version):
+        self.hash_trace = get_hash(self.id, server_version)[:10]
+
 
 class Server(socketserver.ThreadingTCPServer, ConfigClass):
     """
@@ -142,7 +145,7 @@ class MessageProcessor(object):
 
         :return: словарь формата {хэшсумма сеанса 1: сеанс 1, хэшсумма сеанса 2: сеанс 2, ...}
         """
-        return {get_hash(session, self.server.version)[:10]: session for session in self.server.session_list}
+        return {get_hash(session.id, self.server.version)[:10]: session for session in self.server.session_list}
 
     def _preprocess(self, session: SessionClass, new: bool = False):
         """
@@ -165,7 +168,7 @@ class MessageProcessor(object):
         if new:
             return None
         else:
-            callback = OutputMessage((session.settings,
+            callback = OutputMessage((session.id,
                                       self.server.version,
                                       self.server.chunk_size))
         return callback
@@ -296,6 +299,7 @@ class ServerExecutor(object):
         """
 
         session.id = len(self.server.session_list) + 1
+        session.regenerate_hash_trace(self.server.version)
         session.settings = (session.current_connection.message.msg.split(':')[0],
                             int(session.current_connection.message.msg.split(':')[1]))
         self.server.session_list.append(session)
@@ -309,7 +313,7 @@ class ServerExecutor(object):
 
         :param session: экземпляр класса SessionClass
         """
-        # del self.server.session_list[]
+        self.server.session_list.remove(session)
 
     def svr_greeting(self, session: SessionClass):
         """
@@ -381,5 +385,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 if session_hash[:10] == rogue_connection.hash_trace:
                     session, response = self.server.msg_proc.process_message(rogue_connection)
                     self.server.send_message((session.settings[0], session.settings[1]), response)
+                    self.server.connection_buffer.remove(rogue_connection)
                 else:
                     print('InvalidConnection! Failed to remove {}'.format(session_hash))
