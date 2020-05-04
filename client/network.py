@@ -66,7 +66,7 @@ class Client(socketserver.ThreadingTCPServer, ConfigClass):
         ConfigClass.__init__(self)
         self.msg_proc = MessageProcessorClass(self)
         self.executor = ClientExecutorClass(self)
-        self.open_conn = []
+        self.connection_buffer = []
         self.pending_messages = []
         self.killed_on_server = False
 
@@ -212,18 +212,18 @@ class ClientThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                          data.split(':')[1][:-1].split('|')[:-1]]
             size_list.insert(0, False)
             connection = ConnectionClass(session_hash, size_list)
-            self.server.open_conn.append(connection)
+            self.server.connection_buffer.append(connection)
 
         elif len(session_hash) == 20:
-            for connection in self.server.open_conn:
+            for connection in self.server.connection_buffer:
                 if session_hash[:10] == connection.hash_trace:
-                    self.server.open_conn.remove(connection)
+                    self.server.connection_buffer.remove(connection)
                     self.server.msg_proc.process_response(connection)
                 else:
                     print('InvalidConnection! Failed to remove {}'.format(session_hash))
 
         elif len(session_hash) == 10:
-            for connection in self.server.open_conn:
+            for connection in self.server.connection_buffer:
                 if session_hash == connection.hash_trace:
                     if not connection.size_list[len(connection.data)]:
                         connection.data.append(data.split(':', 1)[1])

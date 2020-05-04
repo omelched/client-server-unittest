@@ -65,6 +65,10 @@ class MessageUnit(object):
         messages.append(outro)
         return messages
 
+    @property
+    def hash(self):
+        return self._hash
+
 
 class OutputMessage(MessageUnit):
     """

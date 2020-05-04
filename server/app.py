@@ -15,16 +15,13 @@ class ServerApp(object):
     ServerApp - класс приложений.
     Экземпляр этого класса является непосредственно приложением, производящим общение с пользователем.
     """
-    def __init__(self, settings: tuple):
+    def __init__(self):
         """
         Метод инициализации.
         Сохраняет в память на каком сервере и порте запускается.
         Инстанциирует класс Server.
         Создает thread перехвата входящих TCP-запросов, но не запускает его.
-
-        :param settings: кортеж в формате (IP: str, PORT: int)
         """
-        self.HOST, self.PORT = settings[0], settings[1]
 
         self.server = Server((HOST, PORT),
                              ThreadedTCPRequestHandler,
