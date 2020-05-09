@@ -5,7 +5,7 @@ MessageUnit - родительский класс сообщений
 OutputMessage - класс исходящих сообщений
 InputMessage - класс входящих сообщений
 """
-from server.utils import utf8len, get_hash
+from client.utils import utf8len, get_hash
 import uuid
 
 
@@ -64,10 +64,6 @@ class MessageUnit(object):
         messages.insert(0, intro)
         messages.append(outro)
         return messages
-
-    @property
-    def hash(self):
-        return self._hash
 
 
 class OutputMessage(MessageUnit):
