@@ -71,13 +71,13 @@ class SessionClass(object):
     SessionClass — класс сессий клиент-серверного взаимодействия.
     """
 
-    def __init__(self, hash_trace: str, current_connection: ConnectionClass):
+    def __init__(self, current_connection: ConnectionClass):
         self.is_active = True
         self.settings = (None, None)
         self.id = 0
+        self.hash_trace = ''
 
         self.current_connection = current_connection
-        self.hash_trace = hash_trace
 
     def regenerate_hash_trace(self, server_version):
         self.hash_trace = get_hash(self.id, server_version)[:10]
@@ -154,7 +154,7 @@ class MessageProcessor(object):
         - создаёт объект класса InputMessage основанный на соединении
         - создаёт объект класса OutputMessage если на данное соединение необходимо заранее подготовить ответ
 
-        :param c: объект класса ConnectionClass - соединение на основании которого будет создано сообщение
+        :param session: объект класса SessionClass - сенанс на основании данных которого будет создано сообщение
         :param new: boolean — True если это новое соединение в текущем сеансе работы сервера и для него будет отдельно
         создано ответное сообщение
         :return:
@@ -222,7 +222,7 @@ class MessageProcessor(object):
             finally:
                 return current_session, callback
         elif r_c.hash_trace == get_hash(0, self.server.version)[:10]:
-            current_session = SessionClass(r_c.hash_trace, ConnectionClass(r_c.size_list, r_c.data))
+            current_session = SessionClass(ConnectionClass(r_c.size_list, r_c.data))
             del r_c
             callback = self._preprocess(current_session, True)
             try:

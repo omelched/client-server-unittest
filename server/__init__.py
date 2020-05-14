@@ -1,2 +1,7 @@
 from server.app import ServerApp
-app = ServerApp()
+import os
+
+try:
+    _ = os.environ["UNIT_TESTS_IN_PROGRESS"]
+except KeyError:
+    app = ServerApp()

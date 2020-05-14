@@ -21,6 +21,7 @@ class ServerApp(object):
         Сохраняет в память на каком сервере и порте запускается.
         Инстанциирует класс Server.
         Создает thread перехвата входящих TCP-запросов, но не запускает его.
+        Вызывает метод interface_loop() - запусказий пользовательский интерфейс и сервер.
         """
 
         self.server = Server((HOST, PORT),
@@ -29,6 +30,7 @@ class ServerApp(object):
                              ServerExecutor)
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
+        self.interface_loop()
 
     def interface_loop(self):
         """
