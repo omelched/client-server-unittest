@@ -3,5 +3,6 @@ import os
 
 try:
     _ = os.environ["UNIT_TESTS_IN_PROGRESS"]
+    app = ServerApp(start_interface=False)
 except KeyError:
-    app = ServerApp()
+    app = ServerApp(start_interface=True)

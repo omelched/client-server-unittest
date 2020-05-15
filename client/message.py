@@ -53,7 +53,9 @@ class MessageUnit(object):
         messages = []
         intro = '{}:'.format(self._hash)
         outro = '{}:EOF'.format(self._hash[:20])
-        for key in [s for s in dir(self) if s[:1] != '_' and not callable(getattr(self, s))]:
+        for key in [s for s in dir(self) if s[:1] != '_'
+                                            and not callable(getattr(self, s))
+                                            and not s == 'hash']:
             messages.append('{}:{}={}'.format(self._hash[:10], key, getattr(self, key)))
         for msg in messages:
             if utf8len(msg) > self._chunk_size:
@@ -64,6 +66,10 @@ class MessageUnit(object):
         messages.insert(0, intro)
         messages.append(outro)
         return messages
+
+    @property
+    def hash(self):
+        return self._hash
 
 
 class OutputMessage(MessageUnit):

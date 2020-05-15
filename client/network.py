@@ -80,9 +80,10 @@ class Client(socketserver.ThreadingTCPServer, ConfigClass):
 
         for msg in message.encode():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 sock.connect((self.server_adr[0], self.server_adr[1]))
                 sock.sendall(bytes(msg, 'utf-8'))
-                print("sent {}".format(msg))
+                # print("sent {}".format(msg))
                 sock.close()
                 if DEBUG:
                     _ = input()
@@ -207,7 +208,7 @@ class ClientThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
 
         data = str(self.request.recv(self.server.chunk_size), 'utf-8')
-        print("got {} from {}".format(data, self.client_address))
+        # print("got {} from {}".format(data, self.client_address))
         session_hash = data.split(':')[0]
 
         if len(session_hash) == 40:

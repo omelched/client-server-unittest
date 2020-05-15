@@ -6,7 +6,7 @@ from client.network import Client, ClientThreadedTCPRequestHandler, MessageProce
 
 
 class ClientApp(object):
-    def __init__(self, settings):
+    def __init__(self, settings, start_interface=True):
         self.HOST, self.PORT = settings[0], settings[1]
         self.session = 0
 
@@ -19,11 +19,11 @@ class ClientApp(object):
 
         self.client_thread.start()
 
-        self._init_on_server()
+        if start_interface:
+            self.init_on_server()
+            self._interface_loop()
 
-        self._interface_loop()
-
-    def _init_on_server(self):
+    def init_on_server(self):
         init_msg = OutputMessage((self.session, self.client.version, self.client.chunk_size),
                                  ('initialize_session', '{}:{}'.format(self.HOST, self.PORT)))
         self.client.send_message(init_msg)

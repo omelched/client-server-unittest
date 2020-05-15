@@ -15,7 +15,7 @@ class ServerApp(object):
     ServerApp - класс приложений.
     Экземпляр этого класса является непосредственно приложением, производящим общение с пользователем.
     """
-    def __init__(self):
+    def __init__(self, start_interface: bool = True):
         """
         Метод инициализации.
         Сохраняет в память на каком сервере и порте запускается.
@@ -30,7 +30,8 @@ class ServerApp(object):
                              ServerExecutor)
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
-        self.interface_loop()
+        if start_interface:
+            self.interface_loop()
 
     def interface_loop(self):
         """
